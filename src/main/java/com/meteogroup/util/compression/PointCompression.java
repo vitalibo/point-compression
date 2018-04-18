@@ -1,5 +1,8 @@
 package com.meteogroup.util.compression;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 public class PointCompression {
@@ -40,7 +43,47 @@ public class PointCompression {
     }
 
     public static List<Point> decompress(String compressed) {
-        return null;
+        class H {
+            private double lat, lon;
+
+            private Point calc(double y, double x) {
+                return new Point((lat = f(y) + lat) / ACCURACY, (lon = f(x) + lon) / ACCURACY);
+            }
+
+            private double f(double v) {
+                return (v % 2 == 1 ? (v + 1) * -1 : v) / 2;
+            }
+        }
+
+        final H hl = new H();
+        final List<Point> rs = new ArrayList<>();
+
+        LinkedList<Integer> acm = new LinkedList<>();
+        for (int i = 0; i < compressed.length(); i++) {
+            int chr = CHARACTER_TABLE.indexOf(compressed.charAt(i));
+            acm.add(chr < 32 ? chr : chr - 32);
+
+            if (chr >= 32) {
+                continue;
+            }
+
+            long idx = 0;
+            Iterator<Integer> itr = acm.descendingIterator();
+            while (itr.hasNext()) {
+                idx = idx * 32 + itr.next();
+            }
+
+            long dIag = (long) ((Math.sqrt(8 * idx + 5) - 1) / 2);
+            double latY = idx - (dIag * (dIag + 1) / 2);
+            double lonX = dIag - latY;
+
+            final Point point = hl.calc(latY, lonX);
+            rs.add(point);
+
+            acm = new LinkedList<>();
+        }
+
+        return rs;
     }
 
 }
